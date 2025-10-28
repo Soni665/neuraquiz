@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Neura Protocol Quiz</title>
+  <style>
+    :root {
+      --bg: #0f1724; --card: #0b1220; --accent: #7dd3fc; --muted: #94a3b8; --text: #e6eef6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      margin: 0; padding: 32px;
+      background: linear-gradient(180deg, #071025 0%, #041422 100%);
+      color: var(--text);
+      display: flex; align-items: center; justify-content: center; min-height: 100vh;
+    }
+    .container {
+      width: 100%; max-width: 880px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius: 12px; padding: 28px;
+      box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+    header { margin-bottom: 18px; }
+    header h1 { font-size: 22px; margin: 0; color: var(--accent); }
+    .meta { color: var(--muted); font-size: 14px; margin-top: 4px; }
+    .card {
+      background: var(--card); padding: 18px; border-radius: 10px; margin-bottom: 14px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .question { font-weight: 600; font-size: 16px; }
+    .options { list-style: none; padding: 0; margin: 10px 0 0; }
+    .option { margin: 8px 0; }
+    .option button {
+      width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.05); background: transparent;
+      color: var(--text); cursor: pointer; font-size: 15px;
+    }
+    .option button:hover { outline: 2px solid rgba(125,211,252,0.15); }
+    .controls { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+    .btn {
+      background: transparent; border: 1px solid rgba(125,211,252,0.2);
+      padding: 8px 12px; border-radius: 8px; color: var(--accent);
+      cursor: pointer;
+    }
+    .btn:active { transform: translateY(1px); }
+    .score { margin-left: auto; color: var(--muted); font-weight: 600; }
+    .result { padding: 14px; border-radius: 10px; margin-top: 12px; }
+    .result.correct {
+      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.15); color: #a7f3d0;
+    }
+    .result.wrong {
+      background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.1); color: #fecaca;
+    }
+    footer { font-size: 13px; color: var(--muted); margin-top: 10px; text-align: right; }
+    @media (max-width: 520px) { body { padding: 18px; } }
+  </style>
+</head>
+<body>
+  <main class="container" id="app">
+    <header>
+      <h1>Neura Protocol — Quick Quiz</h1>
+      <div class="meta">5 questions • 4 options each • Select the correct answer.</div>
+    </header>
+
+    <section id="quiz-area"></section>
+
+    <div class="controls">
+      <button id="prevBtn" class="btn">← Previous</button>
+      <button id="nextBtn" class="btn">Next →</button>
+      <button id="submitBtn" class="btn">Submit</button>
+      <div class="score" id="progress">Q 1 / 5</div>
+    </div>
+
+    <footer>Source: Neura Docs & GitHub</footer>
+  </main>
+
+  <script>
+    const QUESTIONS = [
+      {
+        q: "What is Neura primarily built for?",
+        choices: [
+          "A) A general-purpose Layer 1 blockchain for social media apps",
+          "B) A sovereign, EVM-compatible Layer 1 blockchain built for stablecoins, DeFi and real-time digital finance",
+          "C) A side-chain of Ethereum exclusively for gaming",
+          "D) A private consortium blockchain for supply-chain tracking"
+        ],
+        correct: 1
+      },
+      {
+        q: "Which of the following is NOT one of Neura’s key differentiators?",
+        choices: [
+          "A) Gasless stablecoin transfers",
+          "B) Sovereign Infrastructure: global bare-metal and private fiber network",
+          "C) Native support for Bitcoin mining directly within the chain",
+          "D) Developer-first environment: full EVM compatibility, account abstraction, multi-token gas support"
+        ],
+        correct: 2
+      },
+      {
+        q: "What is the native stablecoin of the Neura ecosystem and how is it backed?",
+        choices: [
+          "A) USN; backed by a diversified basket of GENIUS-Act compliant and yield-bearing stablecoins",
+          "B) NEU; backed only by Neura’s own token holdings",
+          "C) USN; backed 100% by Bitcoin reserves",
+          "D) ANKR; backed by yield from lending only"
+        ],
+        correct: 0
+      },
+      {
+        q: "Which consensus mechanism does Neura use according to its documentation?",
+        choices: [
+          "A) Proof of Work (PoW)",
+          "B) Delegated Proof of Stake (DPoS)",
+          "C) QBFT — Byzantine fault-tolerant and fork-resistant consensus protocol",
+          "D) Proof of Authority (PoA)"
+        ],
+        correct: 2
+      },
+      {
+        q: "What is 'RPCfi' in the context of Neura’s ecosystem model?",
+        choices: [
+          "A) A new value primitive that converts RPC infrastructure spending into on-chain yield, aligning users/builders/validators",
+          "B) A fee unrelated to Neura’s infrastructure",
+          "C) A wallet service offered by Neura",
+          "D) A new consensus algorithm"
+        ],
+        correct: 0
+      }
+    ];
+
+    let current = 0;
+    let answers = Array(QUESTIONS.length).fill(null);
+    let submitted = false;
+
+    const quizArea = document.getElementById('quiz-area');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const progress = document.getElementById('progress');
+
+    function renderQuestion() {
+      const q = QUESTIONS[current];
+      quizArea.innerHTML = `
+        <div class="card">
+          <div class="question">${current + 1}. ${q.q}</div>
+          <ul class="options">
+            ${q.choices.map((c, i) => `
+              <li class="option">
+                <button data-index="${i}" ${answers[current] === i ? 'style="background:rgba(125,211,252,0.08);border-color:rgba(125,211,252,0.2)"' : ''}>${c}</button>
+              </li>`).join("")}
+          </ul>
+        </div>
+      `;
+      progress.textContent = `Q ${current + 1} / ${QUESTIONS.length}`;
+      document.querySelectorAll('.option button').forEach(btn => {
+        btn.addEventListener('click', e => {
+          answers[current] = parseInt(e.target.dataset.index);
+          renderQuestion();
+        });
+      });
+    }
+
+    function showResult() {
+      let score = 0;
+      QUESTIONS.forEach((q, i) => {
+        if (answers[i] === q.correct) score++;
+      });
+      const percent = Math.round((score / QUESTIONS.length) * 100);
+      quizArea.innerHTML = `
+        <div class="result ${percent >= 60 ? 'correct' : 'wrong'}">
+          <h3>${percent >= 60 ? '✅ Well done!' : '❌ Try again!'}</h3>
+          <p>You answered ${score} out of ${QUESTIONS.length} correctly (${percent}%).</p>
+        </div>
+      `;
+      prevBtn.disabled = nextBtn.disabled = true;
+    }
+
+    prevBtn.addEventListener('click', () => {
+      if (current > 0) { current--; renderQuestion(); }
+    });
+    nextBtn.addEventListener('click', () => {
+      if (current < QUESTIONS.length - 1) { current++; renderQuestion(); }
+    });
+    submitBtn.addEventListener('click', () => showResult());
+
+    renderQuestion();
+  </script>
+</body>
+</html>
